@@ -14,21 +14,21 @@ void Tools::createMarker(int id) {
     cv::imwrite("../ArUco/marker" + std::to_string(id) + ".png", markerImage);
 }
 
-float Tools::euclideanDist(cv::Point2i &a, cv::Point2i &b) {
+float Tools::euclideanDist(cv::Point2f &a, cv::Point2f &b) {
     cv::Point2f diff = a - b;
     float dist = cv::sqrt(diff.x * diff.x + diff.y * diff.y);
     //cout << "Distance between two point: " << dist << endl;
     return dist;
 }
 
-void Tools::warpImage(const cv::Mat &background, const cv::Mat &src, cv::Mat &dst, cv::Point2f location[]) {
+void Tools::warpImage(const cv::Mat &background, const cv::Mat &src, cv::Mat &dst, std::vector<cv::Point2f> location) {
 
     //input point
-    cv::Point2f inPoints[4];
-    inPoints[0] = cv::Point2i(0, 0);
-    inPoints[1] = cv::Point2i(0, src.rows);
-    inPoints[2] = cv::Point2i(src.cols, src.rows);
-    inPoints[3] = cv::Point2i(src.cols, 0);
+    std::vector<cv::Point2f> inPoints;
+    inPoints.push_back(cv::Point2i(0, 0));
+    inPoints.push_back(cv::Point2i(src.cols, 0));
+    inPoints.push_back(cv::Point2i(src.cols, src.rows));
+    inPoints.push_back(cv::Point2i(0, src.rows));
 
     cv::Mat matrix = cv::getPerspectiveTransform(inPoints, location);
     cv::warpPerspective(src, dst, matrix, dst.size());
@@ -47,12 +47,12 @@ void Tools::warpImage(const cv::Mat &background, const cv::Mat &src, cv::Mat &ds
 
 
 void Tools::overlayImage(const cv::Mat &background, const cv::Mat &foreground,
-                         cv::Mat &output, cv::Point2i location) {
+                         cv::Mat &output, cv::Point2f location) {
 
     background.copyTo(output);
 
     // start at the row indicated by location, or at row 0 if location.y is negative.
-    for (int y = std::max(location.y, 0); y < background.rows; ++y) {
+    for (int y = std::max((int) location.y, 0); y < background.rows; ++y) {
         int fY = y - location.y; // because of the translation
 
         // we are done of we have processed all rows of the foreground image.
@@ -62,7 +62,7 @@ void Tools::overlayImage(const cv::Mat &background, const cv::Mat &foreground,
         // start at the column indicated by location,
 
         // or at column 0 if location.x is negative.
-        for (int x = std::max(location.x, 0); x < background.cols; ++x) {
+        for (int x = std::max((int) location.x, 0); x < background.cols; ++x) {
             int fX = x - location.x; // because of the translation.
 
             // we are done with this row if the column is outside the foreground image.
@@ -154,3 +154,26 @@ void Tools::warpOverlayImage(const cv::Mat &background, const cv::Mat &foregroun
     Tools::overlayImage(output, croppedImage, output, location[0]);
 }
 
+cv::Point2f Tools::findMarkerCenter(std::vector<cv::Point2f> marker) {
+    int x = (int) (marker[0].x + marker[2].x) / 2;
+    int y = (int) (marker[0].y + marker[2].y) / 2;
+    return cv::Point2f(x, y);
+}
+
+std::vector<cv::Point2f> Tools::findMarkersWithId(
+        const std::vector<int> &idList,
+        const std::vector<int> &markerIds,
+        std::vector<std::vector<cv::Point2f>> markerCorners)
+{
+    std::vector<cv::Point2f> ptsOut;
+
+    for (int j : idList) {
+        for (int i = 0; i < (int) markerIds.size(); i++) {
+            if(markerIds[i] == j) {
+                ptsOut.push_back(Tools::findMarkerCenter(markerCorners[i]));
+            }
+        }
+    }
+
+    return ptsOut;
+}
